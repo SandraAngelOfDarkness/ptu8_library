@@ -1,6 +1,11 @@
+from datetime import date
+from django.contrib.auth import get_user_model
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from tinymce.models import HTMLField
 import uuid
+
+User = get_user_model()
 
 
 class Genre(models.Model):
@@ -13,7 +18,7 @@ class Genre(models.Model):
 class Author(models.Model):
     first_name = models.CharField(_('first name'), max_length=100, db_index=True)
     last_name = models.CharField(_('last name'), max_length=100, db_index=True)
-    description = models.TextField(_('description'), max_length=4000, null=True, blank=True)
+    description = HTMLField(_('description'), max_length=4000, null=True, blank=True)
 
     def __str__(self) -> str:
         return f"{self.first_name} {self.last_name}"
@@ -34,7 +39,7 @@ class Book(models.Model):
         related_name='books',
         verbose_name=_('author')
     )
-    summary = models.TextField(_('summary'), max_length=4000, null=True, blank=True)
+    summary = HTMLField(_('summary'), max_length=4000, null=True, blank=True)
     genre = models.ManyToManyField(
         Genre,
         help_text=_('select genre(s) for this book'),
@@ -77,9 +82,22 @@ class BookInstance(models.Model):
     )
 
     status = models.CharField(_('status'), max_length=1, choices=LOAN_STATUS, default='a')
+    reader = models.ForeignKey(
+        User, 
+        verbose_name=_("reader"), 
+        on_delete=models.SET_NULL,
+        related_name='book_instances',
+        null=True, blank=True,
+    )
 
     def __str__(self) -> str:
         return f"{self.id}: {self.book}"
+    
+    @property
+    def is_overdue(self):
+        if self.due_back:
+            return self.due_back < date.today()
+        return False
     
     class Meta:
         ordering = ['due_back']
